@@ -57,6 +57,8 @@ func loadProblems(problemFileName string) (problems []Problem, err error) {
 		return nil, err
 	}
 
+	defer csvFile.Close()
+
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 
 	for {
