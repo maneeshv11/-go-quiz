@@ -9,6 +9,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
+	"time"
 )
 
 type Problem struct {
@@ -19,24 +21,34 @@ type Problem struct {
 func main() {
 
 	var fileName string
+	var timeout int64
 	var score int
 
 	fmt.Printf("Welcome to quiz game\n")
 
 	flag.StringVar(&fileName, "file", "problems.csv", "Path of the problem file.")
+	flag.Int64Var(&timeout, "timeout", 30, "Maximum time for attempting each question")
 	flag.Parse()
 
 	problems, err := loadProblems(fileName)
 
 	if err == nil {
+	problemsLoop:
 		for _, problem := range problems {
-			var userAnswer string
 			fmt.Printf("%s : ", problem.question)
 
-			_, _ = fmt.Scanf("%s", &userAnswer)
+			ch := make(chan string)
 
-			if userAnswer == problem.answer {
-				score++
+			go expectedAnswer(ch)
+
+			select {
+			case answer := <-ch:
+				if answer == problem.answer {
+					score++
+				}
+			case <-time.After(time.Duration(timeout) * time.Second):
+				fmt.Printf("Timeout.\n")
+				break problemsLoop
 			}
 
 		}
@@ -44,6 +56,12 @@ func main() {
 
 	fmt.Printf("Thanks for playing. You have correctly answered %d out of %d questions\n", score, len(problems))
 
+}
+
+func expectedAnswer(ch chan string) {
+	var userAnswer string
+	_, _ = fmt.Scanf("%s\n", &userAnswer)
+	ch <- userAnswer
 }
 
 func loadProblems(problemFileName string) (problems []Problem, err error) {
@@ -71,7 +89,7 @@ func loadProblems(problemFileName string) (problems []Problem, err error) {
 
 		problems = append(problems, Problem{
 			question: row[0],
-			answer:   row[1],
+			answer:   strings.TrimSpace(row[1]),
 		})
 	}
 
